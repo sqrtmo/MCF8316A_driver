@@ -27,18 +27,26 @@ class MCF8316A:
 #     SCL_PIN = 3
     
         self.i2c = machine.I2C( 0, scl=machine.Pin(9), sda=machine.Pin(8), freq=50000 ) # default assignment: scl=Pin(9), sda=Pin(8)
-        self.dev_id = dev_id
+        self.dev_id = dev_id  
     
     def read( self, ctl_word ):
         _cw = bytearray( b'\x90\x00' )
         _cw.append(ctl_word)
         
-        self.i2c.writeto(self.dev_id, _cw)
-
+        try:
+            self.i2c.writeto(self.dev_id, _cw)
+        except OSError as er:
+            print('read()->writeto()', repr(er))
+            return 0
+            
         ut.sleep_us(200)
         
         msg = bytearray(4)
-        self.i2c.readfrom_into(self.dev_id, msg, 4)
+        
+        try:
+            self.i2c.readfrom_into(self.dev_id, msg, 4)
+        except OSError as er:
+            print('read()->readfrom_into()', repr(er))
         
         return hex(int.from_bytes(msg, 'little'))
     
@@ -51,11 +59,11 @@ class MCF8316A:
         
         ut.sleep_us(200)
         
-        self.i2c.writeto(self.dev_id, _cw, False)
-        self.i2c.writeto(self.dev_id, data)
-        
-#         print(err)
-        
+        try:
+            self.i2c.writeto(self.dev_id, _cw, False)
+            self.i2c.writeto(self.dev_id, data)
+        except OSError as er:
+            print(1, repr(er))                
         
     
 #     def read_cfg( self, reg ):
@@ -152,6 +160,48 @@ class MCF8316A:
         return res
 
 
-
-
-
+    def EEPROM_write(self):
+        """
+        writes the shadow register value to EEPROM (datasheet p70)
+        
+        example:
+        __DC = drv.get_struct( regs.DEV_CTRL )
+    
+        __DC['DEV_CTRL'].EEPROM_WRT              = 1
+        __DC['DEV_CTRL'].EEPROM_WRITE_ACCESS_KEY = 0b1010_0101
+    
+        DC = drv.cfg_from_struct(__DC)
+    
+        drv.write_cfg( regs.DEV_CTRL, DC )
+        drv.print_cfg( regs.DEV_CTRL     )
+        
+        ut.sleep_ms(100) needs 100ms to perform write/read operation
+        """
+        self.write( register.DEV_CTRL[0]['DEV_CTRL'], 0x8A500000 )
+        ut.sleep_ms(100)
+        
+#         self.write( register.DEV_CTRL[0]['DEV_CTRL'], 0x00000000 ) # clean DEV_CTRL ??
+        print( 'EEPROM write' )
+        
+    def EEPROM_read(self):
+        """
+        loads the EEPROM data to shadow registers
+        """
+        self.write( register.DEV_CTRL[0]['DEV_CTRL'], 0x40000000 )
+        ut.sleep_ms(100)
+        
+#         self.write( register.DEV_CTRL[0]['DEV_CTRL'], 0x00000000 ) # clean DEV_CTRL ??
+        print( 'EEPROM read' )
+        
+    def clear_fault(self):
+        """
+        clears fault flag
+        """
+        self.write( register.DEV_CTRL[0]['DEV_CTRL'], 0x20000000 )
+        
+#         self.write( register.DEV_CTRL[0]['DEV_CTRL'], 0x00000000 ) # clean DEV_CTRL ??
+        
+        
+        
+        
+        

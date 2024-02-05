@@ -8,7 +8,6 @@ import defaults
 
 # from layout import status as status
 
-DEV_ID = 0x01
 
 
 # ## buttons
@@ -16,57 +15,84 @@ FAULT_PIN = 3
 PROBE_PIN = 16
 CLEAN_PIN = 17
 
+SPEED_PIN = 15
+
+speed_pwm = machine.PWM( machine.Pin(SPEED_PIN) )
+speed_pwm.freq(500)
+
+ADC_PIN = 28
+adc_val = machine.ADC(ADC_PIN)
+
+
 ## fault pin IRQ setup ##
 clean_flag = False
 clean = machine.Pin( CLEAN_PIN, machine.Pin.IN, machine.Pin.PULL_UP )
-def clean_cb(clean):
-    global clean_flag
-    clean_flag = True
+def clean_cb(c):
+    if clean.value() is 0:
+        global clean_flag
+        clean_flag = True
     
 clean.irq( trigger = machine.Pin.IRQ_FALLING, handler=clean_cb )
+
+
+## probe pin IRQ setup ##
+probe_flag = False
+probe = machine.Pin( PROBE_PIN, machine.Pin.IN, machine.Pin.PULL_UP )
+def probe_cb(p):
+    if probe.value() is 0:
+        global probe_flag
+        probe_flag = True
+
+probe.irq( trigger = machine.Pin.IRQ_FALLING, handler=probe_cb )
 
 
 ## fault pin IRQ setup ##
 fault_flag = False
 fault = machine.Pin( FAULT_PIN, machine.Pin.IN, machine.Pin.PULL_UP )
-def fault_cb(fault):
-    global fault_flag
-    fault_flag = True
+def fault_cb(f):
+    if fault.value() is 0:
+        global fault_flag
+        fault_flag = True
     
 fault.irq( trigger = machine.Pin.IRQ_FALLING, handler=fault_cb )
 
-## probe pin IRQ setup ##
-probe_flag = False
-probe = machine.Pin( PROBE_PIN, machine.Pin.IN, machine.Pin.PULL_UP )
-def probe_cb(probe):
-    global probe_flag
-    probe_flag = True
 
-probe.irq( trigger = machine.Pin.IRQ_FALLING, handler=probe_cb )
+def _map(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
 
 
 if __name__ == "__main__":
     
     drv = drv( dev_id=0x01 )
-      
-    drv.print_cfg(regs.ALGORITHM_CFG         )
-    drv.print_cfg(regs.FAULT_CFG             )
-    drv.print_cfg(regs.HARDWARE_CFG          )
-    drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG)
+    
+    
+    
+#     drv.i2c_scan()
+    
+#     drv.EEPROM_read()
+        
+#     drv.print_cfg(regs.ALGORITHM_CFG         )
+#     drv.print_cfg(regs.FAULT_CFG             )
+#     drv.print_cfg(regs.HARDWARE_CFG          )
+#     drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG)
 
       
     ## load and print default configurations ##  
+#     drv.write_cfg( regs.ALGORITHM_CFG         , defaults.CHIP_ALGORITHM_CFG          )
+#     drv.write_cfg( regs.FAULT_CFG             , defaults.CHIP_FAULT_CFG              )
+#     drv.write_cfg( regs.HARDWARE_CFG          , defaults.CHIP_HARDWARE_CFG           )
+#     drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, defaults.CHIP_INTERNAL_ALGORITHM_CFG )
+               
     drv.write_cfg( regs.ALGORITHM_CFG         , defaults.ALGORITHM_CFG          )
     drv.write_cfg( regs.FAULT_CFG             , defaults.FAULT_CFG              )
     drv.write_cfg( regs.HARDWARE_CFG          , defaults.HARDWARE_CFG           )
-    drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, defaults.INTERNAL_ALGORITHM_CFG )
+    drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, defaults.INTERNAL_ALGORITHM_CFG )               
                
 #     drv.print_cfg(regs.ALGORITHM_CFG         , detail=True)
 #     drv.print_cfg(regs.FAULT_CFG             , detail=True)
 #     drv.print_cfg(regs.HARDWARE_CFG          , detail=True)
 #     drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG, detail=True)
-    
-    
+
 
     ##################
     ##  INT_ALGO_1  ##
@@ -126,8 +152,8 @@ if __name__ == "__main__":
     __CL4 = drv.get_struct( regs.ALGORITHM_CFG )
     
     __CL4['CLOSED_LOOP4'].MAX_SPEED   = 1500 # 14 bit (0 - 32767)
-    __CL4['CLOSED_LOOP4'].SPD_LOOP_KP = 0    # 0 to autoset
-    __CL4['CLOSED_LOOP4'].SPD_LOOP_KI = 0    # 0 to autoset
+    __CL4['CLOSED_LOOP4'].SPD_LOOP_KP = 0x1c    # 0 to autoset
+    __CL4['CLOSED_LOOP4'].SPD_LOOP_KI = 0x21c    # 0 to autoset
 
     CL4 = drv.cfg_from_struct(__CL4)
     
@@ -146,17 +172,9 @@ if __name__ == "__main__":
     
     drv.write_cfg( regs.FAULT_CFG, FC1         )
 #     drv.print_cfg( regs.FAULT_CFG, detail=True )
-    
-    
-    
-    # write all cfg to EEPROM
-    drv.write( regs.DEV_CTRL[0]['DEV_CTRL'], 0x80000000 )
-    
-    
-    
-    
-    
-    
+        
+
+        
 #     drv.status(regs.ALGORITHM_CFG)
     
 #     print(algo_cfg_vals)
@@ -174,6 +192,17 @@ if __name__ == "__main__":
 
     print('init ready ')
     while True:
+        
+        v = _map( adc_val.read_u16(), 450, 65100, 0, 65535)
+        if v < 0:
+            v = 0
+        elif v > 65535:
+            v = 65535
+#         print( v )
+        speed_pwm.duty_u16(v)
+        
+        ut.sleep_ms(100)
+        
         if fault_flag is True:
             print('|------------------------------------------------------|')
             print('|###################### FAULT #########################|')
@@ -203,13 +232,26 @@ if __name__ == "__main__":
             probe_flag = False        
         
         if clean_flag is True:
+            
+            print('---> in clean')
+#             machine.disable_irq()
 #             while clean.value() is 0:
 #                 continue
 #             print(clean.value())
 #             print( regs.DEV_CTRL[0]['DEV_CTRL'] )
-            drv.write( regs.DEV_CTRL[0]['DEV_CTRL'], 0x20000000 )
-            drv.print_cfg( regs.DEV_CTRL)
+#             drv.write( regs.DEV_CTRL[0]['DEV_CTRL'], 0x80000000 )
+#             drv.print_cfg( regs.DEV_CTRL)
             
-            clean_flag = False 
+#             dev.clear_fault()
+            
+            drv.EEPROM_write()
+#             drv.print_cfg(regs.ALGORITHM_CFG         )
+#             drv.print_cfg(regs.FAULT_CFG             )
+#             drv.print_cfg(regs.HARDWARE_CFG          )
+#             drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG)
+            
+            clean_flag = False
+            
+#             machine.enable_irq()
         
         
