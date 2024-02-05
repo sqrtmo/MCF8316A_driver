@@ -35,7 +35,7 @@ class MCF8316A:
         
         self.i2c.writeto(self.dev_id, _cw)
 
-        ut.sleep_us(100)
+        ut.sleep_us(200)
         
         msg = bytearray(4)
         self.i2c.readfrom_into(self.dev_id, msg, 4)
@@ -49,12 +49,14 @@ class MCF8316A:
         data = data.to_bytes(4, 'little')    
 #         __reverse( _data, 4)
         
+        ut.sleep_us(200)
+        
         self.i2c.writeto(self.dev_id, _cw, False)
         self.i2c.writeto(self.dev_id, data)
         
 #         print(err)
         
-        ut.sleep_us(100)
+        
     
 #     def read_cfg( self, reg ):
 # #         for d in register.EEPROM_REGISTERS:
@@ -79,7 +81,7 @@ class MCF8316A:
 #                 for b in range(32):
 #                     print( f' --> {b:<3}{(int(v) >> int(b)) & 0x01}' )
                     
-    def read_cfg(self, reg, detail=False):
+    def print_cfg(self, reg, detail=False):
         
 #         res = {}
         
@@ -101,14 +103,15 @@ class MCF8316A:
 #             res.update({reg_name:s})
 
 #             if detail is True:
-            print('---------------------------------------------------')
+            print('|------------------------------------------------------|')
                 
-            print( f'{reg_name:<38}{hex(reg)}' )
+            print( f'|{reg_name:<42}{hex(reg):<12}|' )
             
             if detail is True:
                 for key, val in layout.items():
                     flag = getattr( s, key )
-                    print( f'\t{key:<30}{hex(flag)}' )                
+                    print( f'|\t{key:<35}{hex(flag):<12}|' )
+        print('|------------------------------------------------------|')
 #         return res
                         
     def get_struct(self, reg):
@@ -134,7 +137,7 @@ class MCF8316A:
                 
         return res
     
-    def val_from_struct( self, s ):
+    def cfg_from_struct( self, s ):
         # reads struct format an returns values in dict format
         res = {}
                   
