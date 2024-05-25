@@ -20,14 +20,16 @@ import regs as register
 # 
 # 
 class MCF8316A:
-    def __init__(self, dev_id):
+    def __init__(self, dev_id, scl=9, sda=8):
 #     RESET_PIN = 1
 #         ALERT_PIN = 0
 #     SDA_PIN = 2
 #     SCL_PIN = 3
     
-        self.i2c = machine.I2C( 0, scl=machine.Pin(9), sda=machine.Pin(8), freq=50000 ) # default assignment: scl=Pin(9), sda=Pin(8)
-        self.dev_id = dev_id  
+        self.i2c = machine.I2C( 0, scl=machine.Pin(scl), sda=machine.Pin(sda), freq=50000 ) # default assignment: scl=Pin(9), sda=Pin(8)
+        self.dev_id = dev_id
+        
+        self.err = 0
     
     def read( self, ctl_word ):
         _cw = bytearray( b'\x90\x00' )
@@ -66,13 +68,6 @@ class MCF8316A:
             print(1, repr(er))                
         
     
-#     def read_cfg( self, reg ):
-# #         for d in register.EEPROM_REGISTERS:
-#         for d in reg:
-#             for key, val in d.items():
-#                 if key is not 'LAYOUT':
-#                     print( f'{key:<17}{self.read(val)}' )
-    
     def write_cfg( self, dest, source ):
         for d in dest:
             for key, val in d.items():
@@ -80,14 +75,6 @@ class MCF8316A:
 #                     print( val, source[key] )
                     self.write( val, source[key] )
                 
-    
-#     def read_D( self, d ):
-#         for key, val in d.items():
-#             v = self.read(val)
-#             if int(v) != 0:
-#                 print( f'{key:<26}{v}' ) # {bin(int(v))}            
-#                 for b in range(32):
-#                     print( f' --> {b:<3}{(int(v) >> int(b)) & 0x01}' )
                     
     def print_cfg(self, reg, detail=False):
         

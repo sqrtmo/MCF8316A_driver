@@ -18,7 +18,7 @@ CLEAN_PIN = 17
 SPEED_PIN = 15
 
 speed_pwm = machine.PWM( machine.Pin(SPEED_PIN) )
-speed_pwm.freq(500)
+speed_pwm.freq(1000)
 
 ADC_PIN = 28
 adc_val = machine.ADC(ADC_PIN)
@@ -63,8 +63,10 @@ def _map(x, in_min, in_max, out_min, out_max):
 
 if __name__ == "__main__":
     
-    drv = drv( dev_id=0x01 )
+    drv = drv( dev_id=0xA )
     
+    # clear fault flags
+    drv.clear_fault()
     
     
 #     drv.i2c_scan()
@@ -83,96 +85,131 @@ if __name__ == "__main__":
 #     drv.write_cfg( regs.HARDWARE_CFG          , defaults.CHIP_HARDWARE_CFG           )
 #     drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, defaults.CHIP_INTERNAL_ALGORITHM_CFG )
                
-    drv.write_cfg( regs.ALGORITHM_CFG         , defaults.ALGORITHM_CFG          )
-    drv.write_cfg( regs.FAULT_CFG             , defaults.FAULT_CFG              )
-    drv.write_cfg( regs.HARDWARE_CFG          , defaults.HARDWARE_CFG           )
-    drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, defaults.INTERNAL_ALGORITHM_CFG )               
-               
+    drv.write_cfg( regs.ALGORITHM_CFG         , defaults.MY["ALGORITHM_CFG"]          )
+    drv.write_cfg( regs.FAULT_CFG             , defaults.MY["FAULT_CFG"]              )
+    drv.write_cfg( regs.HARDWARE_CFG          , defaults.MY["HARDWARE_CFG"]           )
+    drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, defaults.MY["INTERNAL_ALGORITHM_CFG"] )
+    
 #     drv.print_cfg(regs.ALGORITHM_CFG         , detail=True)
 #     drv.print_cfg(regs.FAULT_CFG             , detail=True)
 #     drv.print_cfg(regs.HARDWARE_CFG          , detail=True)
 #     drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG, detail=True)
 
 
-    ##################
-    ##  INT_ALGO_1  ##
-    ##################
-    __IA1 = drv.get_struct( regs.INTERNAL_ALGORITHM_CFG )
-    
-    __IA1['INT_ALGO_1'].MPET_OPEN_LOOP_CURRENT_REF = 2 # 0 = 1A, 7 = 8A
-    __IA1['INT_ALGO_1'].MPET_OPEN_LOOP_SLEW_RATE   = 3 # 0 = .1Hz/s, 7 = 20Hz/s
-    
-    IA1 = drv.cfg_from_struct(__IA1)
-    
-    drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, IA1 )
-#     drv.print_cfg( regs.INTERNAL_ALGORITHM_CFG, detail=True  )
 
     ##################
-    ## CLOSED_LOOP1 ##
+    ##  PIN_CONFIG  ##
     ##################
-    __CL1 = drv.get_struct( regs.ALGORITHM_CFG )
+    __PC = drv.get_struct( regs.HARDWARE_CFG )
     
-    __CL1['CLOSED_LOOP1'].DEADTIME_COMP_EN = 1
-
-    CL1 = drv.cfg_from_struct(__CL1)
+    __PC['PIN_CONFIG'].SPEED_MODE = 0x01 # PWM control
     
-    drv.write_cfg( regs.ALGORITHM_CFG, CL1 )
-#     drv.print_cfg( regs.ALGORITHM_CFG, detail=True      )
+    drv.write_cfg( regs.HARDWARE_CFG, drv.cfg_from_struct(__PC) )
 
     ##################
-    ## CLOSED_LOOP2 ##
+    ## HARDWARE_CFG ##
     ##################
-    __CL2 = drv.get_struct( regs.ALGORITHM_CFG )
+    __HC = drv.get_struct( regs.HARDWARE_CFG )
     
-    __CL2['CLOSED_LOOP2'].MOTOR_IND = 0x04  # 0 to autoset
-    __CL2['CLOSED_LOOP2'].MOTOR_RES = 0x37  # 0 to autoset
+    __HC['PERI_CONFIG1'].SPEED_RANGE_SEL = 0x00 # 0h = 325 Hz to 95 kHz, PWM frequency
+    
+    __HC['GD_CONFIG1'].SLEW_RATE = 0x03 # 200 V/μs increasing efficiency and EMI noise
+        
+    drv.write_cfg( regs.HARDWARE_CFG, drv.cfg_from_struct(__HC) )
 
-    CL2 = drv.cfg_from_struct(__CL2)
+    ##############################
+    ##  INTERNAL_ALGORITHM_CFG  ##
+    ##############################
+    __IA = drv.get_struct( regs.INTERNAL_ALGORITHM_CFG )
     
-    drv.write_cfg( regs.ALGORITHM_CFG, CL2 )
-#     drv.print_cfg( regs.ALGORITHM_CFG, detail=True      )
+    __IA['INT_ALGO_1'].MPET_OPEN_LOOP_CURRENT_REF = 3 # 0 = 1A, 7 = 8A
+    __IA['INT_ALGO_1'].MPET_OPEN_LOOP_SPEED_REF   = 3 # 0 = 1A, 7 = 8A
+    __IA['INT_ALGO_1'].MPET_OPEN_LOOP_SLEW_RATE   = 2 # 0 = .1Hz/s, 7 = 20Hz/s
+    __IA['INT_ALGO_1'].AUTO_HANDOFF_MIN_BEMF      = 0 #
+    __IA['INT_ALGO_1'].MPET_IPD_CURRENT_LIMIT     = 3 # 2A 
+    
+#     __IA['INT_ALGO_2'].CL_SLOW_ACC                = 0x0A # 100hZ/s
+    
+    drv.write_cfg( regs.INTERNAL_ALGORITHM_CFG, drv.cfg_from_struct(__IA) )
 
-    ##################
-    ## CLOSED_LOOP3 ##
-    ##################
-    __CL3 = drv.get_struct( regs.ALGORITHM_CFG )
+    ###################
+    ## ALGORITHM_CFG ##
+    ###################
+    __AC = drv.get_struct( regs.ALGORITHM_CFG )
     
-    __CL3['CLOSED_LOOP3'].MOTOR_BEMF_CONST = 0x0F # 0 to FF
-    __CL3['CLOSED_LOOP3'].CURR_LOOP_KP     = 0 # 0 to autoset
-    __CL3['CLOSED_LOOP3'].CURR_LOOP_KI     = 0x93 # 0 to autoset
+    __AC['CLOSED_LOOP1'].DEADTIME_COMP_EN       = 1
+    __AC['CLOSED_LOOP1'].OVERMODULATION_ENABLE  = 1
+    __AC['CLOSED_LOOP1'].AVS_EN                 = 1
+    __AC['CLOSED_LOOP1'].CL_ACC                 = 0x13 # 1000 hZ/s
+    __AC['CLOSED_LOOP1'].CL_DEC_CONFIG          = 1    # CL_DEC same as CL_ACC
+    __AC['CLOSED_LOOP1'].PWM_MODE               = 0    # Continuous Space Vector Modulation    
+    
+    __AC['CLOSED_LOOP2'].MOTOR_IND         = 0x0A  # 0 to autoset
+    __AC['CLOSED_LOOP2'].MOTOR_RES         = 0x42  # 0 to autoset    
+    
+    __AC['CLOSED_LOOP3'].MOTOR_BEMF_CONST = 0x0F # 0 to FF
+    __AC['CLOSED_LOOP3'].CURR_LOOP_KP     = 0 # 0 to autoset
+    __AC['CLOSED_LOOP3'].CURR_LOOP_KI     = 0 # 0 to autoset
 
-    CL3 = drv.cfg_from_struct(__CL3)
+    __AC['CLOSED_LOOP4'].MAX_SPEED        = 2600    # 14 bit (0 - 32767)
+    __AC['CLOSED_LOOP4'].SPD_LOOP_KP      = 0x4E    # 0 to autoset
+    __AC['CLOSED_LOOP4'].SPD_LOOP_KI      = 0x24E   # 0 to autoset
     
-    drv.write_cfg( regs.ALGORITHM_CFG, CL3 )
-#     drv.print_cfg( regs.ALGORITHM_CFG, detail=True      )
+    __AC['MOTOR_STARTUP1'].MTR_STARTUP         = 0x02 # IPD
+    __AC['MOTOR_STARTUP1'].IPD_CURR_THR        = 0x07 # 2.5A
+    __AC['MOTOR_STARTUP1'].IPD_CLK_FREQ        = 0x05 # 2000 Hz
+    __AC['MOTOR_STARTUP1'].IPD_REPEAT          = 0x00 # 1 time
+    __AC['MOTOR_STARTUP1'].IPD_ADV_ANGLE       = 0x03 # 90 deg
+    __AC['MOTOR_STARTUP1'].ALIGN_TIME          = 0x02 # 100 mS
+    __AC['MOTOR_STARTUP1'].OL_ILIMIT_CONFIG    = 0x01 # Open loop current limit defined by ILIMIT
+#     __AC['MOTOR_STARTUP1'].IQ_RAMP_EN          = 0x01 # Enable Iq ramp down
     
-    ##################
-    ## CLOSED_LOOP4 ##
-    ##################
-    __CL4 = drv.get_struct( regs.ALGORITHM_CFG )
-    
-    __CL4['CLOSED_LOOP4'].MAX_SPEED   = 1500 # 14 bit (0 - 32767)
-    __CL4['CLOSED_LOOP4'].SPD_LOOP_KP = 0x1c    # 0 to autoset
-    __CL4['CLOSED_LOOP4'].SPD_LOOP_KI = 0x21c    # 0 to autoset
 
-    CL4 = drv.cfg_from_struct(__CL4)
+    __AC['MOTOR_STARTUP2'].OL_ACC_A1             = 0x07 # 50 hZ
+    __AC['MOTOR_STARTUP2'].OL_ACC_A2             = 0x07 # 50 hZ
+    __AC['MOTOR_STARTUP2'].AUTO_HANDOFF_EN       = 0    # 
+    __AC['MOTOR_STARTUP2'].THETA_ERROR_RAMP_RATE = 0x04 #  .2 deg/ms 
+
+#     __AC['MOTOR_STARTUP2'].SLOW_FIRST_CYC_FREQ = 0x05 
     
-    drv.write_cfg( regs.ALGORITHM_CFG, CL4 )
-#     drv.print_cfg( regs.ALGORITHM_CFG, detail=True      )  
+#     __AC['ALGO_CTRL2'].MPET_KE           = 1
+#     __AC['ALGO_CTRL2'].MPET_R            = 1
+#     __AC['ALGO_CTRL2'].MPET_L            = 1
+#     __AC['ALGO_CTRL2'].MPET_WRITE_SHADOW = 1    
+    
+#     __AC['SPEED_PROFILES1'].SPEED_PROFILE_CONFIG = 0x1 # linear speed profile
+#     __AC['SPEED_PROFILES4'].SPEED_CLAMP1 = 0x1         # 
+#     __AC['SPEED_PROFILES6'].SPEED_CLAMP2 = 0x64        #
+    
+    drv.write_cfg( regs.ALGORITHM_CFG, drv.cfg_from_struct(__AC) )
     
     ###################
     ## FAULT_CONFIG1 ##
     ###################
-    __FC1 = drv.get_struct( regs.FAULT_CFG )
+    __FC = drv.get_struct( regs.FAULT_CFG )
     
-    __FC1['FAULT_CONFIG1'].LOCK_ILIMIT    = 0xF # 8A
-    __FC1['FAULT_CONFIG1'].HW_LOCK_ILIMIT = 0xF # 8A
+    __FC['FAULT_CONFIG1'].LOCK_ILIMIT     = 0xF # 8A
+    __FC['FAULT_CONFIG1'].HW_LOCK_ILIMIT  = 0xF # 8A
+    __FC['FAULT_CONFIG1'].LOCK_ILIMIT_DEG = 0x4 # 1mS Lock detection current limit deglitch time
+    __FC['FAULT_CONFIG1'].MTR_LCK_MODE    = 0x4 # Fault automatically cleared after LCK_RETRY time
+    __FC['FAULT_CONFIG1'].LCK_RETRY       = 0x2 # 1 sec
+
+    __FC['FAULT_CONFIG2'].LOCK_ABN_SPEED      = 0x7 # 170 % of max speed
+    __FC['FAULT_CONFIG2'].MIN_VM_MODE         = 0x1 # if a VM undervoltage event appears clear the flag automatically when V level restores
+    __FC['FAULT_CONFIG2'].HW_LOCK_ILIMIT_MODE = 0x8 # Hardware Ilimit lock detection is in report only but no action is taken
+    __FC['FAULT_CONFIG2'].AUTO_RETRY_TIMES    = 0x5 # 10
     
-    FC1 = drv.cfg_from_struct(__FC1)
+    drv.write_cfg( regs.FAULT_CFG, drv.cfg_from_struct(__FC) )
     
-    drv.write_cfg( regs.FAULT_CFG, FC1         )
-#     drv.print_cfg( regs.FAULT_CFG, detail=True )
-        
+    ###################
+    ## HARDWARE_CFG  ##
+    ###################
+    __HC = drv.get_struct( regs.HARDWARE_CFG )
+    
+    __HC['DEVICE_CONFIG1'].PIN_38_CONFIG   = 0x2 # SOA\
+#     __HC['DEVICE_CONFIG1'].I2C_TARGET_ADDR = 0xA # 
+    
+    drv.write_cfg( regs.HARDWARE_CFG, drv.cfg_from_struct(__HC) )
 
         
 #     drv.status(regs.ALGORITHM_CFG)
@@ -193,7 +230,7 @@ if __name__ == "__main__":
     print('init ready ')
     while True:
         
-        v = _map( adc_val.read_u16(), 450, 65100, 0, 65535)
+        v = _map( adc_val.read_u16(), 600, 65100, 0, 65535)
         if v < 0:
             v = 0
         elif v > 65535:
@@ -202,6 +239,15 @@ if __name__ == "__main__":
         speed_pwm.duty_u16(v)
         
         ut.sleep_ms(100)
+        
+#         v = _map( adc_val.read_u16(), 600, 65100, 0, 1000)
+#         
+#         ut.sleep_ms(v)
+#         speed_pwm.duty_u16(1000)
+#         ut.sleep_ms(v)
+#         speed_pwm.duty_u16(50000)
+#         
+#         print(v)
         
         if fault_flag is True:
             print('|------------------------------------------------------|')
@@ -216,18 +262,19 @@ if __name__ == "__main__":
             fault_flag = False
             
         if probe_flag is True:
+            det = True
             print('|------------------------------------------------------|')
             print('|###################### PROBE #########################|')
             print('|------------------------------------------------------|')
-            drv.print_cfg(regs.ALGORITHM_CFG         , detail=True)
-            drv.print_cfg(regs.FAULT_CFG             , detail=True)
-            drv.print_cfg(regs.HARDWARE_CFG          , detail=True)
-            drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG, detail=True)
+            drv.print_cfg(regs.ALGORITHM_CFG         , detail=det)
+            drv.print_cfg(regs.FAULT_CFG             , detail=det)
+            drv.print_cfg(regs.HARDWARE_CFG          , detail=det)
+            drv.print_cfg(regs.INTERNAL_ALGORITHM_CFG, detail=det)
     
-            drv.print_cfg( regs.FAULT_STATUS   , detail=True)
-            drv.print_cfg( regs.SYSTEM_STATUS  , detail=True)
-            drv.print_cfg( regs.ALGORITHM_CTRL , detail=True)
-            drv.print_cfg( regs.DEV_CTRL       , detail=True)       
+            drv.print_cfg( regs.FAULT_STATUS   , detail=det)
+            drv.print_cfg( regs.SYSTEM_STATUS  , detail=det)
+            drv.print_cfg( regs.ALGORITHM_CTRL , detail=det)
+            drv.print_cfg( regs.DEV_CTRL       , detail=det)       
             
             probe_flag = False        
         

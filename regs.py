@@ -63,7 +63,7 @@ ALGORITHM_CFG = [
     },    
     {"MOTOR_STARTUP2"                  : 0x86,
      'LAYOUT':{
-        'THETA_ERROR_RAMP_ RATE'       :_b( 0, 2),
+        'THETA_ERROR_RAMP_RATE'       :_b( 0, 2),
         'FIRST_CYCLE_FREQ_SEL'         :_b( 3),
         'SLOW_FIRST_CYC_FREQ'          :_b( 4, 7),
         'ALIGN_ANGLE'                  :_b( 8,12),

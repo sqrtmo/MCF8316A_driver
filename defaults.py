@@ -106,3 +106,40 @@ INTERNAL_ALGORITHM_CFG = {
 
 # EEPROM_REGISTERS = [ ALGORITHM_CFG, FAULT_CFG, HARDWARE_CFG, INTERNAL_ALGORITHM_CFG ]
 
+#############################
+## MY DEFAULTS
+
+MY = {
+    "ALGORITHM_CFG" : {
+        "ISD_CONFIG"       : 0x44638c20, 
+        "REV_DRIVE_CONFIG" : 0x283af064, 
+        "MOTOR_STARTUP1"   : 0x4b688dc0, 
+        "MOTOR_STARTUP2"   : 0x23066000, 
+        "CLOSED_LOOP1"     : 0x673181bc, 
+        "CLOSED_LOOP2"     : 0x1aad430a, 
+        "CLOSED_LOOP3"     : 0x7800002 , 
+        "CLOSED_LOOP4"     : 0x2b8ac708, 
+        "SPEED_PROFILES1"  : 0x0       , 
+        "SPEED_PROFILES2"  : 0x0       , 
+        "SPEED_PROFILES3"  : 0x0       , 
+        "SPEED_PROFILES4"  : 0xd0000   , 
+        "SPEED_PROFILES5"  : 0x0       , 
+        "SPEED_PROFILES6"  : 0x0 
+    },       
+    "FAULT_CFG" : {
+        "FAULT_CONFIG1"    : 0x5ff80206,
+        "FAULT_CONFIG2"    : 0x7e000000 
+    },
+    "HARDWARE_CFG" : {
+        "PIN_CONFIG"       : 0x1       , 
+        "DEVICE_CONFIG1"   : 0x100000  , 
+        "DEVICE_CONFIG2"   : 0xb000    , 
+        "PERI_CONFIG1"     : 0x40000000, 
+        "GD_CONFIG1"       : 0x100     , 
+        "GD_CONFIG2"       : 0x200000   
+    },
+    "INTERNAL_ALGORITHM_CFG" : {
+        "INT_ALGO_1"       : 0xb163d5  , 
+        "INT_ALGO_2"       : 0x1a7      
+    }
+}
